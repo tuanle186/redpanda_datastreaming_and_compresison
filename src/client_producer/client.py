@@ -64,3 +64,24 @@ class SensorSimulation():
         # Ensure all messages are sent before exiting
         self.producer.flush()
         print(f"Simulation finished for {self.data_file}!")
+
+
+if __name__ == "__main__":
+    # Set the Kafka configuration
+    kafka_config = {
+        'bootstrap.servers': 'localhost:19092',
+        'security.protocol': 'SASL_PLAINTEXT',
+        'sasl.mechanism': 'SCRAM-SHA-256',
+        'sasl.username': 'superuser',
+        'sasl.password': 'secretpassword'
+    }
+
+    # Set the Kafka topic name
+    topic = "sensor_data"
+
+    # Path to the combined data file
+    data_file = "./data/processed/data.csv"
+
+    # Create an instance of the SensorSimulation
+    sensor_simulation = SensorSimulation(data_file=data_file, kafka_config=kafka_config, topic=topic)
+    sensor_simulation.run()
