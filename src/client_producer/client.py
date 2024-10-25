@@ -33,7 +33,10 @@ class SensorSimulation():
 
                 # Prepare the message to send to Kafka
                 message = {
-                    'datetime': str(row['datetime']),
+                    'date': str(row['date']),
+                    'time': str(row['time']),
+                    'epoch': int(row['epoch']),
+                    # 'datetime': str(row['datetime']),
                     'moteid': int(row['moteid']),
                     'temperature': row['temperature'],
                     'humidity': row['humidity'],
@@ -49,7 +52,7 @@ class SensorSimulation():
                     )
                     self.producer.poll(0)
 
-                print(f"Produced to Kafka -> Moteid: {row['moteid']}, Time: {row['datetime']}, "
+                print(f"Produced to Kafka -> Moteid: {row['moteid']}, Date: {row['date']}, Time: {row['time']}, "
                     f"Temperature: {row['temperature']}, Humidity: {row['humidity']}, "
                     f"Light: {row['light']}, Voltage: {row['voltage']}")
 
