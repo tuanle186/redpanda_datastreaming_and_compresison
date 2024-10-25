@@ -13,8 +13,10 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(mess
 
 # Constants
 DATA_FILE = './src/server_consumer/data/sensor_data_output.txt'
-COMPRESSED_DATA_DIR = './src/server_consumer/data'
-RAW_DATA_FILE = './src/server_consumer/data/sensor_data_output.txt'  # Adjusted to be consistent
+COMPRESSED_DATA_DIR = './src/server_consumer/data/compressed'
+RECONSTRUCTED_DATA_DIR = './src/server_consumer/data/reconstructed'
+# RAW_DATA_FILE = './src/server_consumer/data/sensor_data_output.txt'  # Adjusted to be consistent
+RAW_DATA_FILE = './data/raw/data.txt'
 TIMEOUT_SECONDS = 5 * 60 * 60  # 5 hours in seconds
 KAFKA_POLL_TIMEOUT = 1.0  # Kafka poll timeout in seconds
 
@@ -159,7 +161,7 @@ class Server:
                     logging.info(f'Compressed data written to {compressed_file}')
 
                 # Write the reconstructed data to files
-                reconstructed_file = f'{COMPRESSED_DATA_DIR}/reconstructed_{attribute}_data.txt'
+                reconstructed_file = f'{RECONSTRUCTED_DATA_DIR}/reconstructed_{attribute}_data.txt'
                 with open(reconstructed_file, 'w') as file:
                     for moteid, signal in zip(
                         [self.base_moteid] + list(ratio_signals.keys()),
@@ -232,3 +234,4 @@ if __name__ == "__main__":
 
     server = Server(kafka_conf, topic)
     server.run()
+    # server.compress_data_helper()  # For testing
