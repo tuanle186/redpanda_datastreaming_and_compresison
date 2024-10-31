@@ -1,5 +1,4 @@
 import argparse
-import multiprocessing
 import subprocess
 from client_producer.client import Client
 from server_consumer.server import Server
