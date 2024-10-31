@@ -102,10 +102,11 @@ class Client():
         except KeyboardInterrupt:
             logging.info("Simulation stopped by user.")
         
-        # Ensure all messages are sent before exiting
-        if self.producer:
-            self.producer.flush()
-        logging.info(f"Simulation finished for {self.data_file}!")
+        finally:
+            # Ensure all messages are sent before exiting
+            if self.producer:
+                self.producer.flush()
+            logging.info(f"Simulation finished for {self.data_file}!")
 
 
 if __name__ == "__main__":
