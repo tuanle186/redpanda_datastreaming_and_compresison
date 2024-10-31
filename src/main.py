@@ -1,4 +1,4 @@
-from client_producer.client import SensorSimulation
+from client_producer.client import Client
 
 CLIENT_ENABLED = True
 SERVER_ENABLED = False
@@ -21,7 +21,7 @@ if CLIENT_ENABLED:
     data_file = "./data/processed/data.csv"
 
     # Create an instance of the SensorSimulation
-    sensor_simulation = SensorSimulation(data_file=data_file, kafka_config=kafka_config, topic=topic)
+    sensor_simulation = Client(dataset_path=data_file, kafka_config=kafka_config, topic=topic)
     sensor_simulation.run()
 
 
