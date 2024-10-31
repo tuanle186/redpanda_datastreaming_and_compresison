@@ -1,77 +1,115 @@
 import pandas as pd
 import time
-from confluent_kafka import Producer
+from confluent_kafka import Producer, KafkaException
 import json
+import logging
+from typing import Dict, Optional
 
-KAFKA_ENABLED = True
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-class SensorSimulation():
-    def __init__(self, data_file: str, kafka_config: dict, topic: str):
-        self.data_file = data_file
-        self.kafka_config = kafka_config
-        self.topic = topic
-        if KAFKA_ENABLED:
-            self.producer = Producer(self.kafka_config)
+class Client():
+    def __init__(self, dataset_path: str):
+        self.topic = 'sensor-data'
+        self.producer: Optional[Producer] = None
+        self.data = self.load_data(dataset_path)
 
-    def delivery_report(self, err, msg):
+    @staticmethod
+    def load_data(data_file: str) -> pd.DataFrame:
+        """
+        Load the sensor data from the CSV file.
+        """
+        try:
+            df = pd.read_csv(data_file)
+            df['datetime'] = pd.to_datetime(df['datetime'], errors='coerce')
+            df.dropna(subset=['datetime'], inplace=True)
+            logging.info("Data loaded successfully.")
+            return df
+        except Exception as e:
+            logging.error(f"Error loading data file: {e}")
+            raise
+
+    def connect(self, kafka_config: Dict[str, str]):
+        """
+        Connect to the Redpanda broker.
+        """
+        try:
+            self.producer = Producer(kafka_config)
+            logging.info(f"Connected to Redpanda broker: {kafka_config['bootstrap.servers']}")
+        except KafkaException as e:
+            logging.error(f"Failed to connect to Redpanda broker: {e}")
+            raise
+
+    def produce(self, message: dict, retries: int = 3):
+        """
+        Produce a message to the Kafka topic with retry logic.
+        """
+        for attempt in range(retries):
+            try:
+                self.producer.produce(self.topic, value=json.dumps(message), callback=self.delivery_report)
+                self.producer.poll(0)
+                return
+            except KafkaException as e:
+                logging.warning(f"Attempt {attempt+1} failed to produce message: {e}")
+                if attempt + 1 == retries:
+                    logging.error("Max retries reached. Message failed to send.")
+
+    @staticmethod
+    def delivery_report(err, msg):
         """
         Callback function to report message delivery status.
         """
         if err is not None:
-            print(f"Message delivery failed: {err}")
+            logging.error(f"Message delivery failed: {err}")
         else:
-            print(f"Message delivered to {msg.topic()} [{msg.partition()}]")
+            logging.info(f"Message delivered to {msg.topic()} [{msg.partition()}]")
+
+    def prepare_message(self, row: pd.Series) -> dict:
+        """
+        Prepare the message to be sent to Kafka from a DataFrame row.
+        """
+        return {
+            'date': str(row['date']),
+            'time': str(row['time']),
+            'epoch': int(row['epoch']),
+            'moteid': int(row['moteid']),
+            'temperature': row['temperature'],
+            'humidity': row['humidity'],
+            'light': row['light'],
+            'voltage': row['voltage']
+        }
 
     def run(self):
-        df = pd.read_csv(self.data_file)
-        df['datetime'] = pd.to_datetime(df['datetime'], errors='coerce')
-        df = df.dropna(subset=['datetime'])
+        """
+        Run the simulation to produce messages to Kafka.
+        """
+        if not self.producer:
+            logging.error("Kafka producer not connected.")
+            return
 
         try:
-            for i in range(len(df)):
-                row = df.iloc[i]
+            for i in range(len(self.data)):
+                row = self.data.iloc[i]
+                message = self.prepare_message(row)
+                self.produce(message)
 
-                # Prepare the message to send to Kafka
-                message = {
-                    'date': str(row['date']),
-                    'time': str(row['time']),
-                    'epoch': int(row['epoch']),
-                    # 'datetime': str(row['datetime']),
-                    'moteid': int(row['moteid']),
-                    'temperature': row['temperature'],
-                    'humidity': row['humidity'],
-                    'light': row['light'],
-                    'voltage': row['voltage']
-                }
-
-                if KAFKA_ENABLED:
-                    self.producer.produce(
-                        self.topic,
-                        value=json.dumps(message),
-                        callback=self.delivery_report
-                    )
-                    self.producer.poll(0)
-
-                print(f"Produced to Kafka -> Moteid: {row['moteid']}, Date: {row['date']}, Time: {row['time']}, "
-                    f"Temperature: {row['temperature']}, Humidity: {row['humidity']}, "
-                    f"Light: {row['light']}, Voltage: {row['voltage']}")
-
-                # For the last row, we don't need to calculate sleep time
-                if i < len(df) - 1:
-                    time_diff = (df['datetime'].iloc[i + 1] - df['datetime'].iloc[i]).total_seconds()
-                    time.sleep(time_diff)
+                # Sleep for the time difference between the current and next row
+                if i < len(self.data) - 1:
+                    time_diff = (self.data['datetime'].iloc[i + 1] - self.data['datetime'].iloc[i]).total_seconds()
+                    if time_diff > 0:
+                        time.sleep(time_diff)
 
         except KeyboardInterrupt:
-            print("\nSimulation stopped by user.")
+            logging.info("Simulation stopped by user.")
         
-        # Ensure all messages are sent before exiting
-        self.producer.flush()
-        print(f"Simulation finished for {self.data_file}!")
+        finally:
+            # Ensure all messages are sent before exiting
+            if self.producer:
+                self.producer.flush()
+            logging.info(f"Simulation finished for {self.data_file}!")
 
 
 if __name__ == "__main__":
-    # Set the Kafka configuration
-    kafka_config = {
+    kafka_conf = {
         'bootstrap.servers': 'localhost:19092',
         'security.protocol': 'SASL_PLAINTEXT',
         'sasl.mechanism': 'SCRAM-SHA-256',
@@ -79,12 +117,10 @@ if __name__ == "__main__":
         'sasl.password': 'secretpassword'
     }
 
-    # Set the Kafka topic name
-    topic = "sensor_data"
-
-    # Path to the combined data file
-    data_file = "./data/processed/data.csv"
-
-    # Create an instance of the SensorSimulation
-    sensor_simulation = SensorSimulation(data_file=data_file, kafka_config=kafka_config, topic=topic)
-    sensor_simulation.run()
+    data_file = 'data/processed/data.csv'
+    client = Client(data_file)
+    try:
+        client.connect(kafka_conf)
+        client.run()
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
