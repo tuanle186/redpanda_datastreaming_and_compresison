@@ -8,11 +8,10 @@ from typing import Dict, Optional
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class Client():
-    def __init__(self, dataset_path: str, topic: str = "sensor_data"):
-        self.data_file = dataset_path
-        self.topic = topic
+    def __init__(self, dataset_path: str):
+        self.topic = 'sensor-data'
         self.producer: Optional[Producer] = None
-        self.data = self.load_data(self.data_file)
+        self.data = self.load_data(dataset_path)
 
     @staticmethod
     def load_data(data_file: str) -> pd.DataFrame:
@@ -31,13 +30,13 @@ class Client():
 
     def connect(self, kafka_config: Dict[str, str]):
         """
-        Connect to the Kafka broker.
+        Connect to the Redpanda broker.
         """
         try:
             self.producer = Producer(kafka_config)
-            logging.info("Connected to Kafka broker.")
+            logging.info(f"Connected to Redpanda broker: {kafka_config['bootstrap.servers']}")
         except KafkaException as e:
-            logging.error(f"Failed to connect to Kafka broker: {e}")
+            logging.error(f"Failed to connect to Redpanda broker: {e}")
             raise
 
     def produce(self, message: dict, retries: int = 3):
@@ -111,16 +110,14 @@ class Client():
 
 if __name__ == "__main__":
     kafka_conf = {
-        'bootstrap.servers': 'localhost:9092',
-        'group.id': 'my_producer_group',
-        'auto.offset.reset': 'earliest',
+        'bootstrap.servers': 'localhost:19092',
         'security.protocol': 'SASL_PLAINTEXT',
         'sasl.mechanism': 'SCRAM-SHA-256',
         'sasl.username': 'superuser',
         'sasl.password': 'secretpassword'
     }
 
-    data_file = 'sensor_data.csv'
+    data_file = 'data/processed/data.csv'
     client = Client(data_file)
     try:
         client.connect(kafka_conf)
