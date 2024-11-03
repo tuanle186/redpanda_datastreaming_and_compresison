@@ -19,7 +19,7 @@ This project provides a multi-mode application that can run as a client, server,
     ```sh
     pip install -r requirements.txt
     ```
-3. Download the dataset and put in the correct directory (Read the [File Structure section at the end of this file](##File-Structure)  for reference.
+3. Download the dataset and put in the correct directory (Read the [File Structure section at the end of this file](#File-Structure)  for reference.
    Dataset link: https://drive.google.com/file/d/1NFk5n-bpwynDvgjb50yT7AkMbWNmAq-h/view
 
 ## Usage
