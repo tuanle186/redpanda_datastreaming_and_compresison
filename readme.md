@@ -19,12 +19,14 @@ This project provides a multi-mode application that can run as a client, server,
     ```sh
     pip install -r requirements.txt
     ```
+3. Download the dataset and put in the correct directory (Read the [File Structure section at the end of this file](##-File-Structure)  for reference.
+   Dataset link: https://drive.google.com/file/d/1NFk5n-bpwynDvgjb50yT7AkMbWNmAq-h/view
 
 ## Usage
 
 The application can be run in different modes: 
 
-`client`, `server`, `redpanda`, and `server_data_compression`.
+`client`, `server`, `redpanda`, and `server_data_compression`. The `--ip_address` if not specified will be set to `localhost` by default.
 
 ### Running the Client
 
