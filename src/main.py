@@ -134,6 +134,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run the application in different modes")
     parser.add_argument("mode", type=str, choices=["client", "server", "redpanda", "stop_redpanda", "server_data_compression"], 
                         help="Mode to run the script in (client, server, redpanda, stop_redpanda, server_data_compression)")
-    parser.add_argument("--ip_address", type=str, default="localhost", help="IP address of the redpanda server (default: localhost)")
+    parser.add_argument("--redpanda_ip_address", type=str, default="localhost", help="IP address of the redpanda server (default: localhost)")
     args = parser.parse_args()
-    main(args.mode, args.ip_address)
+    main(args.mode, args.redpanda_ip_address)
