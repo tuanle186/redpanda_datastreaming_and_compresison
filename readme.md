@@ -30,21 +30,28 @@ The application can be run in different modes:
 
 To run the client mode:
 ```sh
-python src/main.py client --ip_address <IP_ADDRESS>
+python src/main.py client --redpanda_ip_address <REDPANDA_IP_ADDRESS>
 ```
 
 ### Running the Server
 
 To run the server mode:
 ```sh
-python src/main.py server --ip_address <IP_ADDRESS>
+python src/main.py server --redpanda_ip_address <REDPANDA_IP_ADDRESS>
 ```
 
 ### Running Redpanda
 
 To start Redpanda using Docker Compose:
 ```sh
-python src/main.py redpanda --ip_address <IP_ADDRESS>
+python src/main.py redpanda
+```
+
+### Stopping Redpanda
+
+To stop Redpanda using Docker Compose:
+```sh
+python src/main.py stop_redpanda
 ```
 
 ### Running Server Data Compression
@@ -104,7 +111,12 @@ src/
     server_consumer/
         __pycache__/
         data/
-            ...
+            compressed/
+                compressed_humidity.txt
+                compressed_light.txt
+                compressed_temperature.txt
+                compressed_voltage.txt
+            raw_data.txt
         MultiSensorDataGrouper.py
         server.py
 ```

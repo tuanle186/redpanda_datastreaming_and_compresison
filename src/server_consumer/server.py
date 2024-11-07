@@ -45,6 +45,7 @@ class Server:
         Consume data from Kafka and write it to a file.
         """
         try:
+            os.makedirs(os.path.dirname(self.raw_data_path), exist_ok=True)
             with open(self.raw_data_path, 'a') as file:
                 while not self.stop_event.is_set():
                     msg = self.consumer.poll(timeout=1.0)
@@ -131,6 +132,7 @@ class Server:
                 'ratio_signals': {str(int(moteid)): self.convert_numpy_types(signal_data) for moteid, signal_data in ratio_signals.items()},
                 'total_memory_cost': total_memory_cost
             }
+            os.makedirs(self.compressed_data_path, exist_ok=True)
             compressed_file = f'{self.compressed_data_path}/compressed_{attribute}.txt'
             with open(compressed_file, 'a') as file:
                 json.dump(processed_data, file)
@@ -142,6 +144,7 @@ class Server:
         """
         Clear the raw data file.
         """
+        os.makedirs(os.path.dirname(self.raw_data_path), exist_ok=True)
         with open(self.raw_data_path, 'w') as file:
             file.write('')
         logging.info("Raw data file cleared.")
