@@ -47,9 +47,10 @@ def run_server(redpanda_ip_address):
         'sasl.password': 'secretpassword'
     }
 
-    raw_data_path = './src/server_consumer/data/raw_data.txt'
+    raw_data_path = './data/raw/data.txt'
     compressed_data_path = './src/server_consumer/data/compressed'
-    server = Server(raw_data_path, compressed_data_path)
+    decompressed_data_path = './src/server_consumer/data/decompressed'
+    server = Server(raw_data_path, compressed_data_path,decompressed_data_path)
     try:
         server.connect(kafka_conf)
         server.run()
@@ -64,7 +65,8 @@ def run_server_data_compression():
     """
     raw_data_path = './data/raw/data.txt'
     compressed_data_path = './src/server_consumer/data/compressed'
-    server = Server(raw_data_path, compressed_data_path)
+    decompressed_data_path = './src/server_consumer/data/decompressed'
+    server = Server(raw_data_path, compressed_data_path,decompressed_data_path)
     try:
         server.compress_and_store()
     except Exception as e:
