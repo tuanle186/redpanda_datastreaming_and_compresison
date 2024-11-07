@@ -43,6 +43,7 @@ class Client():
         """
         Produce a message to the Kafka topic with retry logic.
         """
+        logging.info(f"Producing message: {message}")  # Log the message value
         for attempt in range(retries):
             try:
                 self.producer.produce(self.topic, value=json.dumps(message), callback=self.delivery_report)
