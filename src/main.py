@@ -70,7 +70,20 @@ def run_server_data_compression():
     except Exception as e:
         print(f"An error occurred in the server: {e}")
 
+def run_server_data_decompression():
+    """
+    Run the server to compress and store data.
 
+    """
+    raw_data_path = './data/raw/data.txt'
+    compressed_data_path = './src/server_consumer/data/compressed'
+    decompressed_data_path = './src/server_consumer/data/decompressed'
+    server = Server(raw_data_path, compressed_data_path,decompressed_data_path)
+    try:
+        server.decompress_and_store()
+    except Exception as e:
+        print(f"An error occurred in the server: {e}")
+        
 def run_redpanda():
     """
     Run Redpanda using Docker Compose and open the web UI in a browser.
@@ -125,15 +138,19 @@ def main(mode, ip_address):
     elif mode == "server_data_compression":
         print("Running in SERVER DATA COMPRESSION mode...")
         run_server_data_compression()
+        
+    elif mode == "server_data_decompression":
+        print("Running in SERVER DATA DECOMPRESSION mode...")
+        run_server_data_decompression()
 
     else:
-        print("Invalid mode selected. Please choose a valid mode: client, server, redpanda, server_data_compression.")
+        print("Invalid mode selected. Please choose a valid mode: client, server, redpanda, server_data_compression, server_data_decompression.")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run the application in different modes")
-    parser.add_argument("mode", type=str, choices=["client", "server", "redpanda", "stop_redpanda", "server_data_compression"], 
-                        help="Mode to run the script in (client, server, redpanda, stop_redpanda, server_data_compression)")
+    parser.add_argument("mode", type=str, choices=["client", "server", "redpanda", "stop_redpanda", "server_data_compression","server_data_decompression"], 
+                        help="Mode to run the script in (client, server, redpanda, stop_redpanda, server_data_compression,server_data_decompression)")
     parser.add_argument("--redpanda_ip_address", type=str, default="localhost", help="IP address of the redpanda server (default: localhost)")
     args = parser.parse_args()
     main(args.mode, args.redpanda_ip_address)

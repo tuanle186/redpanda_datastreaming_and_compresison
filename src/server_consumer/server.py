@@ -17,12 +17,13 @@ class Server:
     and periodically compresses the data using MultiSensorDataGrouper.
     """
 
-    def __init__(self, raw_data_path: str, compressed_data_path: str):
+    def __init__(self, raw_data_path: str, compressed_data_path: str ,decompressed_data_path: str):
         self.topic = 'sensor-data'
         self.consumer: Optional[Consumer] = None
         self.data_compress_interval = 5 * 60 * 60  # 5 hours
         self.raw_data_path = raw_data_path
         self.compressed_data_path = compressed_data_path
+        self.decompressed_data_path = decompressed_data_path
         self.grouper = MultiSensorDataGrouper(epsilon=2, window_size=100)
         self.base_moteid = 1
         self.stop_event = threading.Event()
@@ -126,6 +127,7 @@ class Server:
         """
         Write the compressed data to files.
         """
+        
         try:
             processed_data = {
                 'base_signals': [[int(moteid), self.convert_numpy_types(signal_data)] for moteid, signal_data in base_signals],
@@ -139,6 +141,64 @@ class Server:
             logging.info(f'Compressed data written to {compressed_file}')
         except Exception as e:
             logging.error(f"Error writing compressed data: {e}")
+           
+    # ############################################################################################### 
+    def decompress_and_store(self):
+        """
+        Decompress each compressed attribute and store the decompressed data
+        in separate files for each attribute.
+        """
+        try:       
+            os.makedirs(self.decompressed_data_path, exist_ok=True)
+            for attribute in self.attributes:
+                decompressed_file_path = f'{self.decompressed_data_path}/decompressed_{attribute}.txt'
+                compressed_file = f'{self.compressed_data_path}/compressed_{attribute}.txt'            
+                
+                with open(compressed_file, 'r') as compressed_data_file:
+                    compressed_data = json.load(compressed_data_file)
+
+                base_signals = compressed_data.get('base_signals', [])
+                ratio_signals = compressed_data.get('ratio_signals', {})
+
+                if not base_signals or len(base_signals[0]) < 2:
+                    logging.warning(f"Base signals for attribute '{attribute}' are empty or malformed.")
+                    continue
+
+                reconstructed_base_signal = self.grouper.reconstruct_signal(base_signals[0][1])
+
+                # Reconstruct other signals using the base signal
+                reconstructed_other_signals = []
+                for moteid, ratio_buckets in ratio_signals.items():
+                    if not ratio_buckets:
+                        logging.warning(f"Ratio buckets for moteid '{moteid}' in attribute '{attribute}' are empty.")
+                        continue
+                    reconstructed_signal = self.grouper.reconstruct_signal(ratio_buckets, reconstructed_base_signal)
+                    reconstructed_other_signals.append(reconstructed_signal)
+
+                # Ensure all signals are the same length
+                max_length = len(reconstructed_base_signal)
+                reconstructed_other_signals = [
+                    signal[:max_length] if len(signal) > max_length else signal + [None] * (max_length - len(signal))
+                    for signal in reconstructed_other_signals
+                ]
+
+                with open(decompressed_file_path, 'w') as file:
+                    for i, timestamp in enumerate(reconstructed_base_signal):
+                        try:
+                            line = f"{timestamp} {self.base_moteid} {reconstructed_base_signal[i]} " \
+                                f"{reconstructed_other_signals[0][i]} {reconstructed_other_signals[1][i]} " \
+                                f"{reconstructed_other_signals[2][i]} {reconstructed_other_signals[3][i]}\n"
+                            file.write(line)
+                        except IndexError:
+                            logging.error(f"Index error while writing decompressed data for attribute '{attribute}' at position {i}.")
+                            break
+                logging.info(f"Decompressed data for attribute '{attribute}' written to {decompressed_file_path}.")
+        except Exception as e:
+            logging.error(f"Error in decompress_and_store: {e}")
+            raise
+
+
+
 
     def clear_raw_data(self):
         """
@@ -200,8 +260,9 @@ if __name__ == "__main__":
 
     raw_data_path = './src/server_consumer/data/raw_data.txt'
     compressed_data_path = './src/server_consumer/data/compressed'
+    decompressed_data_path = './src/server_consumer/data/decompressed'
 
-    server = Server(raw_data_path, compressed_data_path)
+    server = Server(raw_data_path, compressed_data_path, decompressed_data_path)
     server.connect(kafka_conf)
     server.run()
     
