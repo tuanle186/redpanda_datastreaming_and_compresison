@@ -149,8 +149,11 @@ class Server:
         in separate files for each attribute.
         """
         try:
+            df = load_data(self.raw_data_path)
             os.makedirs(self.decompressed_data_path, exist_ok=True)
             for attribute in self.attributes:
+                base_signal, other_signals, timestamps = self.grouper.extract_signals(df, self.base_moteid, attribute)
+                
                 decompressed_file_path = f'{self.decompressed_data_path}/decompressed_{attribute}.txt'          
                 compressed_file = f'{self.compressed_data_path}/compressed_{attribute}.txt'
                 if not os.path.exists(compressed_file):
@@ -163,7 +166,7 @@ class Server:
                     with open(compressed_file, 'r') as compressed_data_file:
                         for line in compressed_data_file:
                             try:
-                                compressed_data = json.loads(line.strip())  # Parse each line as JSON
+                                compressed_data = json.loads(line.strip())  
                                 
                                 base_signals = compressed_data.get('base_signals', [])
                                 ratio_signals = compressed_data.get('ratio_signals', {})
@@ -181,8 +184,15 @@ class Server:
                                         skipped_moteids.append(moteid)
                                         continue  # Skip processing this moteid
 
-                                    reconstructed_signal = self.grouper.reconstruct_signal(ratio_buckets, reconstructed_base_signal)
+                                    reconstructed_signal = self.grouper.reconstruct_signal(ratio_buckets, base_signal)
                                     reconstructed_other_signals.append(reconstructed_signal)
+                                
+                                # # Ensure all signals are the same length
+                                max_length = len(reconstructed_base_signal)
+                                reconstructed_other_signals = [
+                                    signal[:max_length] if len(signal) > max_length else signal + [None] * (max_length - len(signal))
+                                    for signal in reconstructed_other_signals
+                                ]
 
                                 # Write the decompressed signals to the decompressed file for each attribute
                                 with open(decompressed_file_path, 'w') as file:
