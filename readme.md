@@ -63,6 +63,12 @@ To run the server data compression mode:
 python src/main.py server_data_compression
 ```
 
+### Running Server Data Decompression
+
+To run the server data compression mode:
+```sh
+python src/main.py server_data_decompression
+```
 ## Configuration
 
 The Kafka configuration is hardcoded in the script for simplicity. You can modify the following parameters in the 
@@ -118,6 +124,11 @@ src/
                 compressed_light.txt
                 compressed_temperature.txt
                 compressed_voltage.txt
+            decompressed/
+                decompressed_humidity.txt
+                decompressed_light.txt
+                decompressed_temperature.txt
+                decompressed_voltage.txt
             raw_data.txt
         MultiSensorDataGrouper.py
         server.py
