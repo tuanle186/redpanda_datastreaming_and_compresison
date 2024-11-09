@@ -202,7 +202,6 @@ class Server:
                                 reconstructed_base_signal = self.grouper.reconstruct_signal(base_signals[0][1])
                                 reconstructed_data["reconstructed_base_signal"] = reconstructed_base_signal
 
-                                
                                 for moteid, ratio_buckets in ratio_signals.items():
                                     if not ratio_buckets:
                                         skipped_moteids.append(moteid)
@@ -215,11 +214,9 @@ class Server:
                                 logging.error(f"JSON decoding error in line: {line}. Error: {e}")
                                 continue
 
-                    
                     with open(decompressed_file_path, 'w') as file:
                         json.dump(reconstructed_data, file)
                         
-                   
                     if skipped_moteids:
                         logging.warning(f"Skipped {len(skipped_moteids)} moteids with empty ratio buckets in attribute '{attribute}': {set(skipped_moteids)}")
 

@@ -75,7 +75,6 @@ def run_server_data_compression():
 def run_server_data_decompression():
     """
     Run the server to compress and store data.
-
     """
     raw_data_path = './data/raw/data.txt'
     compressed_data_path = './src/server_consumer/data/compressed'
@@ -90,7 +89,6 @@ def run_server_data_decompression():
             print("No compressed data available for decompression.")
             return
 
-
         while True:
             try:
                 num_to_decompress = int(input(f"Enter the number of compressed data entries you want to decompress (1 to {max_compression_count}): "))
@@ -100,7 +98,6 @@ def run_server_data_decompression():
                     print(f"Please enter a number between 1 and {max_compression_count}.")
             except ValueError:
                 print("Invalid input. Please enter a valid number.")
-
 
         server.decompress_and_store(num_to_decompress)
 

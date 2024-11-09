@@ -65,10 +65,12 @@ python src/main.py server_data_compression
 
 ### Running Server Data Decompression
 
-To run the server data compression mode:
+To run the server data decompression mode:
 ```sh
 python src/main.py server_data_decompression
 ```
+After that enter the number of compressed data entries you want to decompress 
+
 ## Configuration
 
 The Kafka configuration is hardcoded in the script for simplicity. You can modify the following parameters in the 
