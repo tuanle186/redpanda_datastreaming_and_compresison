@@ -72,11 +72,11 @@ python src/main.py server_data_compression
 
 ### Step 5: (Optional) Run Server Data Decompression
 
-To run the server data decompression utility, execute:
-
+To run the server data decompression mode:
 ```sh
 python src/main.py server_data_decompression
 ```
+After that enter the number of compressed data entries you want to decompress.
 
 ### Step 6: Stop Redpanda
 
