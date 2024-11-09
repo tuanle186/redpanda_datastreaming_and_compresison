@@ -7,6 +7,7 @@ import os
 from confluent_kafka import Consumer, KafkaError, KafkaException
 from typing import Dict, Optional
 from server_consumer.MultiSensorDataGrouper import MultiSensorDataGrouper, load_data
+from datetime import datetime
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
@@ -112,18 +113,31 @@ class Server:
         """
         try:
             df = load_data(self.raw_data_path)
+            counter_file = os.path.join(self.compressed_data_path, 'compression_counter.txt')
+        
+            if os.path.exists(counter_file):
+                with open(counter_file, 'r') as f:
+                    compression_counter = int(f.read().strip())
+            else:
+                compression_counter = 0
 
+
+            compression_counter += 1
+            
+
+            with open(counter_file, 'w') as f:
+                f.write(str(compression_counter))
             for attribute in self.attributes:    
                 base_signals, ratio_signals, total_memory_cost = self.grouper.static_group(df, self.base_moteid, attribute)
                 logging.info(f'Attribute: {attribute} - Total memory cost after compression: {total_memory_cost} buckets')
                 
-                self.write_compressed_data(attribute, base_signals, ratio_signals, total_memory_cost)
+                self.write_compressed_data(attribute, base_signals, ratio_signals, total_memory_cost,compression_counter)
 
         except Exception as e:
             logging.error(f"Error in compress_and_store: {e}")
             raise
 
-    def write_compressed_data(self, attribute, base_signals, ratio_signals, total_memory_cost):
+    def write_compressed_data(self, attribute, base_signals, ratio_signals, total_memory_cost,compression_counter):
         """
         Write the compressed data to files.
         """
@@ -132,10 +146,14 @@ class Server:
             processed_data = {
                 'base_signals': [[int(moteid), self.convert_numpy_types(signal_data)] for moteid, signal_data in base_signals],
                 'ratio_signals': {str(int(moteid)): self.convert_numpy_types(signal_data) for moteid, signal_data in ratio_signals.items()},
-                'total_memory_cost': total_memory_cost
+                'total_memory_cost': total_memory_cost,
+                'compression_timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             }
             os.makedirs(self.compressed_data_path, exist_ok=True)
-            compressed_file = f'{self.compressed_data_path}/compressed_{attribute}.txt'
+
+            # Set the compressed file name based on the attribute and counter
+            compressed_file = f'{self.compressed_data_path}/compressed_{attribute}_{compression_counter}.txt'
+        
             with open(compressed_file, 'a') as file:
                 json.dump(processed_data, file)
             logging.info(f'Compressed data written to {compressed_file}')
@@ -143,7 +161,7 @@ class Server:
             logging.error(f"Error writing compressed data: {e}")
            
     # ############################################################################################### 
-    def decompress_and_store(self):
+    def decompress_and_store(self, compression_counter):
         """
         Decompress each compressed attribute and store the decompressed data
         in separate JSON files for each attribute.
@@ -152,8 +170,8 @@ class Server:
             os.makedirs(self.decompressed_data_path, exist_ok=True)
             
             for attribute in self.attributes:
-                decompressed_file_path = f'{self.decompressed_data_path}/decompressed_{attribute}.txt'          
-                compressed_file = f'{self.compressed_data_path}/compressed_{attribute}.txt'
+                decompressed_file_path = f'{self.decompressed_data_path}/decompressed_{attribute}_{compression_counter}.txt'          
+                compressed_file = f'{self.compressed_data_path}/compressed_{attribute}_{compression_counter}.txt'
                 
                 if not os.path.exists(compressed_file):
                     logging.warning(f"Compressed file for attribute '{attribute}' does not exist.")
@@ -163,7 +181,8 @@ class Server:
 
                 reconstructed_data = {
                     "reconstructed_base_signal": [],
-                    "reconstructed_other_signals": {}
+                    "reconstructed_other_signals": {},
+                    'compression_timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 }
 
                 try:

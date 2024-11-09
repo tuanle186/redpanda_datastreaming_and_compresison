@@ -81,8 +81,29 @@ def run_server_data_decompression():
     compressed_data_path = './src/server_consumer/data/compressed'
     decompressed_data_path = './src/server_consumer/data/decompressed'
     server = Server(raw_data_path, compressed_data_path,decompressed_data_path)
+    counter_file = os.path.join(compressed_data_path, 'compression_counter.txt')
     try:
-        server.decompress_and_store()
+        if os.path.exists(counter_file):
+            with open(counter_file, 'r') as f:
+                max_compression_count = int(f.read().strip())
+        else:
+            print("No compressed data available for decompression.")
+            return
+
+
+        while True:
+            try:
+                num_to_decompress = int(input(f"Enter the number of compressed data entries you want to decompress (1 to {max_compression_count}): "))
+                if 1 <= num_to_decompress <= max_compression_count:
+                    break  
+                else:
+                    print(f"Please enter a number between 1 and {max_compression_count}.")
+            except ValueError:
+                print("Invalid input. Please enter a valid number.")
+
+
+        server.decompress_and_store(num_to_decompress)
+
     except Exception as e:
         print(f"An error occurred in the server: {e}")
         
