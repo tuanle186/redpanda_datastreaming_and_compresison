@@ -7,11 +7,12 @@ from typing import Dict, Optional
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-class Client():
+class Client:
     def __init__(self, dataset_path: str):
         self.topic = 'sensor-data'
         self.producer: Optional[Producer] = None
         self.data = self.load_data(dataset_path)
+        self.retry_delay = 5  
 
     @staticmethod
     def load_data(data_file: str) -> pd.DataFrame:
@@ -28,31 +29,46 @@ class Client():
             logging.error(f"Error loading data file: {e}")
             raise
 
-    def connect(self, kafka_config: Dict[str, str]):
+    def connect(self, kafka_config: Dict[str, str], retries: int = 3):
         """
-        Connect to the Redpanda broker.
+        Connect to the Redpanda broker with retry logic.
         """
-        try:
-            self.producer = Producer(kafka_config)
-            logging.info(f"Connected to Redpanda broker: {kafka_config['bootstrap.servers']}")
-        except KafkaException as e:
-            logging.error(f"Failed to connect to Redpanda broker: {e}")
-            raise
+        attempt = 0
+        while attempt < retries:
+            try:
+                self.producer = Producer(kafka_config)
+                logging.info(f"Connected to Redpanda broker: {kafka_config['bootstrap.servers']}")
+                return
+            except KafkaException as e:
+                attempt += 1
+                logging.warning(f"Connection attempt {attempt} failed: {e}")
+                if attempt < retries:
+                    time.sleep(self.retry_delay)
+                else:
+                    logging.error("Max retries reached. Could not connect to the broker.")
+                    raise
 
     def produce(self, message: dict, retries: int = 3):
         """
-        Produce a message to the Kafka topic with retry logic.
+        Produce a message to the Kafka topic with retry logic and detailed logging of outgoing data.
         """
-        logging.info(f"Producing message: {message}")  # Log the message value
-        for attempt in range(retries):
+        attempt = 0
+        while attempt < retries:
             try:
+                # Log the message content in JSON format
+                logging.info(f"Producing message: {json.dumps(message)}")
+                
                 self.producer.produce(self.topic, value=json.dumps(message), callback=self.delivery_report)
                 self.producer.poll(0)
                 return
             except KafkaException as e:
-                logging.warning(f"Attempt {attempt+1} failed to produce message: {e}")
-                if attempt + 1 == retries:
+                attempt += 1
+                logging.warning(f"Attempt {attempt} failed to produce message: {e}")
+                if attempt < retries:
+                    time.sleep(self.retry_delay)
+                else:
                     logging.error("Max retries reached. Message failed to send.")
+
 
     @staticmethod
     def delivery_report(err, msg):
@@ -91,9 +107,17 @@ class Client():
             for i in range(len(self.data)):
                 row = self.data.iloc[i]
                 message = self.prepare_message(row)
-                self.produce(message)
 
-                # Sleep for the time difference between the current and next row
+
+                while True:
+                    try:
+                        self.produce(message)
+                        break
+                    except KafkaException as e:
+                        logging.error(f"Error producing message: {e}. Retrying in {self.retry_delay} seconds...")
+                        time.sleep(self.retry_delay)
+
+
                 if i < len(self.data) - 1:
                     time_diff = (self.data['datetime'].iloc[i + 1] - self.data['datetime'].iloc[i]).total_seconds()
                     if time_diff > 0:
@@ -103,10 +127,9 @@ class Client():
             logging.info("Simulation stopped by user.")
         
         finally:
-            # Ensure all messages are sent before exiting
             if self.producer:
                 self.producer.flush()
-            logging.info(f"Simulation finished for {self.data_file}!")
+            logging.info("Simulation finished!")
 
 
 if __name__ == "__main__":
@@ -121,7 +144,7 @@ if __name__ == "__main__":
     data_file = 'data/processed/data.csv'
     client = Client(data_file)
     try:
-        client.connect(kafka_conf)
+        client.connect(kafka_conf, retries=5)  # Increased retries for connection
         client.run()
     except Exception as e:
         logging.error(f"An error occurred: {e}")
