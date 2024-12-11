@@ -20,9 +20,9 @@ def run_client(redpanda_ip_address):
         'sasl.username': 'superuser',
         'sasl.password': 'secretpassword'
     }
-
+    schema_registry_url = 'http://' + f'{redpanda_ip_address}:18081'
     data_file = 'data/processed/data.csv'
-    client = Client(data_file)
+    client = Client(data_file,schema_registry_url)
     try:
         client.connect(kafka_conf)
         client.run()
@@ -46,11 +46,12 @@ def run_server(redpanda_ip_address):
         'sasl.username': 'superuser',
         'sasl.password': 'secretpassword'
     }
-
+    schema_registry_url = 'http://' + f'{redpanda_ip_address}:18081'
+    
     raw_data_path = './src/server_consumer/data/raw_data.txt'
     compressed_data_path = './src/server_consumer/data/compressed'
     decompressed_data_path = './src/server_consumer/data/decompressed'
-    server = Server(raw_data_path, compressed_data_path,decompressed_data_path)
+    server = Server(raw_data_path, compressed_data_path,decompressed_data_path,schema_registry_url)
     try:
         server.connect(kafka_conf)
         server.run()

@@ -5,14 +5,43 @@ import json
 import logging
 from typing import Dict, Optional
 
+from confluent_kafka.schema_registry import SchemaRegistryClient
+from confluent_kafka.schema_registry.avro import AvroSerializer
+from confluent_kafka.serialization import SerializationContext, MessageField
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class Client:
-    def __init__(self, dataset_path: str):
+    def __init__(self, dataset_path: str ,schema_registry_url: str):
         self.topic = 'sensor-data'
         self.producer: Optional[Producer] = None
         self.data = self.load_data(dataset_path)
         self.retry_delay = 5  
+        
+         # Schema Registry Configuration
+        
+        self.schema_registry_url = schema_registry_url
+        self.schema_registry_client = SchemaRegistryClient({'url': schema_registry_url})
+        self.schema_str = """
+        {
+            "type": "record",
+            "name": "SensorData",
+            "fields": [
+                {"name": "date", "type": "string"},
+                {"name": "time", "type": "string"},
+                {"name": "epoch", "type": "int"},
+                {"name": "moteid", "type": "int"},
+                {"name": "temperature", "type": "float"},
+                {"name": "humidity", "type": "float"},
+                {"name": "light", "type": "float"},
+                {"name": "voltage", "type": "float"}
+            ]
+        }
+        """
+        self.avro_serializer = AvroSerializer(
+            schema_str=self.schema_str,
+            schema_registry_client=self.schema_registry_client
+        )
 
     @staticmethod
     def load_data(data_file: str) -> pd.DataFrame:
@@ -48,17 +77,16 @@ class Client:
                     logging.error("Max retries reached. Could not connect to the broker.")
                     raise
 
-    def produce(self, message: dict, retries: int = 3):
+    def produce(self, message: bytes, retries: int = 3):
         """
-        Produce a message to the Kafka topic with retry logic and detailed logging of outgoing data.
+        Produce a serialized message to the Kafka topic with retry logic.
         """
         attempt = 0
         while attempt < retries:
             try:
-                # Log the message content in JSON format
-                logging.info(f"Producing message: {json.dumps(message)}")
-                
-                self.producer.produce(self.topic, value=json.dumps(message), callback=self.delivery_report)
+                logging.info("Producing serialized Avro message.")
+                # Produce the serialized (bytes) message
+                self.producer.produce(self.topic, value=message, callback=self.delivery_report)
                 self.producer.poll(0)
                 return
             except KafkaException as e:
@@ -68,6 +96,7 @@ class Client:
                     time.sleep(self.retry_delay)
                 else:
                     logging.error("Max retries reached. Message failed to send.")
+
 
 
     @staticmethod
@@ -80,11 +109,11 @@ class Client:
         else:
             logging.info(f"Message delivered to {msg.topic()} [{msg.partition()}]")
 
-    def prepare_message(self, row: pd.Series) -> dict:
+    def prepare_message(self, row: pd.Series) -> bytes:
         """
-        Prepare the message to be sent to Kafka from a DataFrame row.
+        Prepare and serialize the message using Schema Registry.
         """
-        return {
+        message = {
             'date': str(row['date']),
             'time': str(row['time']),
             'epoch': int(row['epoch']),
@@ -94,6 +123,13 @@ class Client:
             'light': row['light'],
             'voltage': row['voltage']
         }
+
+        # Log raw message before serialization
+        logging.info(f"Raw message: {message}")
+
+        # Serialize the message using the Avro Serializer
+        return self.avro_serializer(message, SerializationContext(self.topic, MessageField.VALUE))
+
 
     def run(self):
         """
@@ -142,7 +178,8 @@ if __name__ == "__main__":
     }
 
     data_file = 'data/processed/data.csv'
-    client = Client(data_file)
+    schema_registry_url = "http://192.168.1.11:18081"
+    client = Client(data_file,schema_registry_url)
     try:
         client.connect(kafka_conf, retries=5)  # Increased retries for connection
         client.run()

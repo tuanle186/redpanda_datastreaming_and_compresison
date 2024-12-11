@@ -5,6 +5,9 @@ import logging
 import numpy as np
 import os
 from confluent_kafka import Consumer, KafkaError, KafkaException
+from confluent_kafka.schema_registry import SchemaRegistryClient
+from confluent_kafka.schema_registry.avro import AvroDeserializer
+from confluent_kafka.serialization import SerializationContext, MessageField
 from typing import Dict, Optional
 from server_consumer.MultiSensorDataGrouper import MultiSensorDataGrouper, load_data
 from datetime import datetime
@@ -18,7 +21,7 @@ class Server:
     and periodically compresses the data using MultiSensorDataGrouper.
     """
 
-    def __init__(self, raw_data_path: str, compressed_data_path: str ,decompressed_data_path: str):
+    def __init__(self, raw_data_path: str, compressed_data_path: str ,decompressed_data_path: str, schema_registry_url: Optional[str] = None):
         self.topic = 'sensor-data'
         self.consumer: Optional[Consumer] = None
         self.data_compress_interval = 5 * 60 * 60  # 5 hours
@@ -29,6 +32,20 @@ class Server:
         self.base_moteid = 1
         self.stop_event = threading.Event()
         self.attributes = ['temperature', 'humidity', 'light', 'voltage']
+        
+        self.schema_registry_url = schema_registry_url
+
+        if self.schema_registry_url:
+            self.schema_registry_client = SchemaRegistryClient({'url': self.schema_registry_url})
+            self.avro_deserializer = AvroDeserializer(
+                schema_registry_client=self.schema_registry_client,
+                schema_str=None
+            )
+        else:
+            self.schema_registry_client = None
+            self.avro_deserializer = None
+            # logging.warning("Schema Registry URL not provided.")
+
         
     def connect(self, kafka_config: Dict[str, str]):
         """
@@ -57,17 +74,28 @@ class Server:
                             logging.error(f"Kafka error: {msg.error()}")
                         continue
 
-                    print(f"Received message: {msg.value()}")
-                    
                     try:
-                        self.write_message_to_file(file, msg.value())
-                        self.delivery_report(json.loads(msg.value().decode('utf-8')), None)
+                        # Deserialize the Avro message
+                        data = self.avro_deserializer(
+                            msg.value(),
+                            SerializationContext(self.topic, MessageField.VALUE)
+                        )
+
+                        if data is None:
+                            logging.warning("Received null data after deserialization.")
+                            continue
+
+                        logging.info(f"Deserialized data: {data}")
+
+                        self.write_message_to_file(file, data)
+
                     except Exception as e:
-                        self.delivery_report(None, f"Error writing message: {e}")
+                        logging.error(f"Error deserializing message: {e}")
         except Exception as e:
             logging.error(f"Error in consume: {e}")
         finally:
             self.consumer.close()
+
 
     @staticmethod
     def delivery_report(err, msg):
@@ -84,17 +112,18 @@ class Server:
         Writes a decoded message to the specified file.
         """
         try:
-            data = json.loads(message.decode('utf-8'))
-            logging.info(f"Received data: {data}")
 
-            # Write data to the raw data file
-            file.write(f"{data['date']} {data['time']} {data['epoch']} "
-                       f"{data['moteid']} {data['temperature']} "
-                       f"{data['humidity']} {data['light']} {data['voltage']}\n")
+            logging.info(f"Received data: {message}")
+            file.write(f"{message['date']} {message['time']} {message['epoch']} "
+                    f"{message['moteid']} {message['temperature']} "
+                    f"{message['humidity']} {message['light']} {message['voltage']}\n")
             file.flush()
             os.fsync(file.fileno())
-        except json.JSONDecodeError:
-            logging.warning(f"Received non-JSON message: {message}")
+        except KeyError as e:
+            logging.error(f"Missing expected key in message: {e}")
+        except Exception as e:
+            logging.error(f"Error writing message to file: {e}")
+
 
     def compress(self):
         """
@@ -291,8 +320,10 @@ if __name__ == "__main__":
     raw_data_path = './src/server_consumer/data/raw_data.txt'
     compressed_data_path = './src/server_consumer/data/compressed'
     decompressed_data_path = './src/server_consumer/data/decompressed'
+    
+    schema_registry_url = "http://192.168.1.11:18081"
 
-    server = Server(raw_data_path, compressed_data_path, decompressed_data_path)
+    server = Server(raw_data_path, compressed_data_path, decompressed_data_path,schema_registry_url)
     server.connect(kafka_conf)
     server.run()
     

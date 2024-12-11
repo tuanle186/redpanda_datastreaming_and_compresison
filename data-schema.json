@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date in YYYY-MM-DD format."
+    },
+    "time": {
+      "type": "string",
+      "pattern": "^\\d{2}:\\d{2}:\\d{2}\\.\\d{6}$",
+      "description": "Time in HH:MM:SS.ssssss format."
+    },
+    "epoch": {
+      "type": "integer",
+      "description": "Epoch number."
+    },
+    "moteid": {
+      "type": "integer",
+      "description": "ID of the mote (sensor)."
+    },
+    "temperature": {
+      "type": "number",
+      "description": "Temperature in degrees Celsius."
+    },
+    "humidity": {
+      "type": "number",
+      "description": "Humidity percentage."
+    },
+    "light": {
+      "type": "number",
+      "description": "Light intensity in lumens."
+    },
+    "voltage": {
+      "type": "number",
+      "description": "Voltage in volts."
+    }
+  },
+  "required": ["date", "time", "epoch", "moteid", "temperature", "humidity", "light", "voltage"],
+  "additionalProperties": false
+}

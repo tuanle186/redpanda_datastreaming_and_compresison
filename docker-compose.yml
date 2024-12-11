@@ -157,3 +157,26 @@ services:
       - 8080:8080
     depends_on:
       - redpanda-0
+ ####################
+  # rpk #
+  ####################
+  redpandarpk:
+    command:
+      - registry
+      - schema
+      - create
+      - sensor_data
+      - --schema
+      - /etc/redpanda/data-schema.json
+      - -X user=superuser
+      - -X pass=secretpassword
+      - -X registry.hosts=redpanda-0:8081
+    image: docker.redpanda.com/redpandadata/redpanda:v24.2.5
+    # mount the local directory that contains your schema to the container.
+    volumes:
+      - ./data-schema.json:/etc/redpanda/data-schema.json
+    networks:
+      - redpanda_network
+    depends_on:
+      redpanda-0:
+        condition: service_healthy
